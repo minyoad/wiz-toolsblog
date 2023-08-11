@@ -164,12 +164,24 @@
             </td>
         </tr>
         <tr>
+            <td id="labelAddressList" align="left">
+                Address List
+            </td>
+            <td>
+                <select id="address" name="address" style="width: 300px;"></select>
+                <input id="buttonDeleteAddress" type="button" value="Delete" onclick="return buttonDelete_onclick()" />
+            </td>
+
+        </tr>
+        <tr>
             <td id="labelAddress" align="left">
                 Address
             </td>
             <td>
                 <input id="textAddress" type="text" value="example.com/xmlrpc.php" onfocus="onAddressFocus();" onblur="onAddressBlur();"/>
-                <input id="buttonAPIHelp" type="button" value="Help" onclick="return buttonAPIHelp_onclick()" /></td>
+                <input id="buttonAPIHelp" type="button" value="Help" onclick="return buttonAPIHelp_onclick()" />
+            </td>
+
         </tr>
         <tr>
             <td id="labelPort" align="right">
@@ -252,7 +264,7 @@
                 &nbsp;
             </td>
             <td>
-                <input id="checkAutoAddMoreTag" type="checkbox" /><label for="checkAutoAddMoreTag"
+                <input id="checkAutoAddMoreTag" type="checkbox"  checked="checked"  /><label for="checkAutoAddMoreTag"
                     id="labelAutoAddMoreTag">Add "More" TAG automatically (&lt;!--More--&gt;)</label>
             </td>
         </tr>
@@ -268,7 +280,7 @@
             <td align="right" class="style1">
                 &nbsp;</td>
             <td>
-                <input id="checkUseTime" type="checkbox" /><label for="checkUseTime"
+                <input id="checkUseTime" type="checkbox"  checked="checked"  /><label for="checkUseTime"
                     id="labelUseTime">Use document created time as post time</label></td>
         </tr>
         <tr>
@@ -289,14 +301,14 @@
             <td align="right" class="style1">
                 &nbsp;</td>
             <td>
-                <input id="checkRenderMarkdown" type="checkbox" /><label for="checkRenderMarkdown"
+                <input id="checkRenderMarkdown" type="checkbox"  checked="checked" /><label for="checkRenderMarkdown"
                     id="labelRenderMakrdownOrMathJax">Render as markdown or mathjax before post blog</label></td>
         </tr>
         <tr>
             <td align="right" class="style1">
                 &nbsp;</td>
             <td>
-                <input id="checkPromoteWiz" type="checkbox" checked="checked"  /><label id="labelPromoteWiz" for="checkPromoteWiz">Help promote Wiz (VIP members only)</label></td>
+                <input id="checkPromoteWiz" type="checkbox" checked=""  /><label id="labelPromoteWiz" for="checkPromoteWiz">Help promote Wiz (VIP members only)</label></td>
         </tr>
         <tr>
             <td colspan="2">
@@ -310,7 +322,9 @@
         </tr>
     </table>
     <p align="right">
-        <input id="buttonOK" onclick="CloseDialog(1);" style="width: 70px;"
+        <input id="buttonSave" onclick="saveAll()" style="width: 70px;"
+            type="button" value="保存" />&nbsp;
+        <input id="buttonPublish" onclick="CloseDialog(1);" style="width: 70px;"
             type="button" value="OK" />&nbsp;
         <input id="buttonCancel" onclick="CloseDialog(2);" style="width: 70px;"
             type="button" value="Cancel" />
@@ -343,6 +357,7 @@
         }
         return '';
     }; 
+
     //
     var addressHint = "example.com/xmlrpc.php";
     //
@@ -387,7 +402,7 @@
     objApp.PluginLocalizeHtmlDialog(WizChromeBrowser);
     //
     var settings_meta_base = "PublishHtml";
-    var settings_meta = settings_meta;
+    var settings_meta = settings_meta_base;
     //
     var selected_documents = null;
     //
@@ -405,6 +420,13 @@
     }
     else {
     }
+
+    $("#address").change(function() {
+        var selectedValue = $(this).val();
+        settings_meta=settings_meta_base+"_"+selectedValue;
+        loadSettings(settings_meta);
+    });
+
     //
     if (null == selected_documents
         || selected_documents.Count == 0) {
@@ -422,8 +444,11 @@
             else {
                 documents_text = documents_text + "; " + selected_documents.Item(i).Title;
             }
-        }
+        }        
         labelDocumentList.innerHTML = documents_text;
+
+        loadAddress();
+
         //
         settings_meta = settings_meta_base + "_" + selected_documents.Item(0).Parent.RootFolder.Name;
         //
@@ -457,6 +482,42 @@
             initCategorys();
         }
     }
+
+    // Load options function
+    function loadAddress() {
+        var options = database.GetMeta(settings_meta_base, "AddressList").split(",");
+        var select = $("#address");
+        
+        select.empty(); // Clear existing options
+        
+        $.each(options, function(index, value) {
+            var option = $("<option>").text(value).val(value);
+            select.append(option);
+        });
+    }
+
+    // Delete selected option
+    function buttonDelete_onclick(){
+        $("#address option:selected").remove();
+        saveAddress();
+    }
+    
+    // Save all options
+    function saveAddress(){
+        var allOptions = [];
+        $("#address option").each(function() {
+            allOptions.push($(this).val());
+        });
+
+        console.log("All options:", allOptions);
+
+        database.SetMeta(settings_meta_base, "AddressList",allOptions.join(","));
+    }
+
+    function getAddressTitle(address) {
+        return address.replace(/^https?:\/\//, '').split('/')[0];
+    }
+    
     //
     function onAddressFocus()
     {
@@ -506,12 +567,29 @@
         }
     }
 
+    function addressExits(value) {
+        return $("#address").find("option[value='" + value + "']").length > 0;
+    }
+
+    function addAddress(value, text) {
+        var newOption = $("<option>", { value: value, text: text });
+        $("#address").append(newOption);
+        //alert("Option added!");
+    }
+
     //
     function onAddressBlur()
     {
         if (textAddress.value == null ||  textAddress.value == "")
         {
             textAddress.value = addressHint;
+        }
+
+        title=getAddressTitle(textAddress.value)
+
+        if (!addressExits(title)){
+            addAddress(title,title);
+            saveAddress();
         }
     }
     //
@@ -608,6 +686,13 @@
             checkPromoteWiz.checked = true;
         }
     }
+
+    function saveAll() {
+        title=$("#address").val();
+        saveSettings(settings_meta_base+"_"+title);
+        $("#labelStatus").text("已保存");
+    }
+
     function saveSettings(key)
     {
         g_strCategory = textCategory.value;
@@ -682,8 +767,8 @@
         var renderMarkdownOrMathJax = checkRenderMarkdown.checked;
         //
         //save settings to database
-        saveSettings(settings_meta);
-        saveSettings(settings_meta_base);
+        //saveSettings(settings_meta);
+        //saveSettings(settings_meta_base);
         //
         var document_count = selected_documents.Count;
         //
@@ -828,7 +913,7 @@
         if (ret == 1) {
             var address = textAddress.value;
             database.SetMeta(settings_meta, "Address", address);
-            database.SetMeta(settings_meta_base, "Address", address);
+            //database.SetMeta(settings_meta_base, "Address", address);
             //
             var ret = true;
             //
